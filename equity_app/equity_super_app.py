@@ -25,8 +25,8 @@ sentiment = pipeline('sentiment-analysis', model=model, tokenizer=tokenizer)
 unwanted_string_list = ['maps', 'policies', 'preferences', 'accounts', 'support']
 
 st.title("Equity Research & Portfolio Optimization Helper App")
-st.write("Python version")
-st.write(sys.version)
+print("Python version")
+
 st.write("Streamlit version")
 st.write(st.__version__)                
 st.subheader("Run Monte Carlo Simulations on a Selected Stock Price")
