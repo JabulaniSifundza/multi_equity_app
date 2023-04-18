@@ -11,6 +11,7 @@ from datetime import datetime
 import io
 import math
 import streamlit as st
+import sys
 
 API_TOKEN = "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"
 API_URL = "https://api-inference.huggingface.co/models/human-centered-summarization/financial-summarization-pegasus"
@@ -23,7 +24,11 @@ sentiment = pipeline('sentiment-analysis', model=model, tokenizer=tokenizer)
 
 unwanted_string_list = ['maps', 'policies', 'preferences', 'accounts', 'support']
 
-st.title("Equity Research & Portfolio Optimization Helper App")                
+st.title("Equity Research & Portfolio Optimization Helper App")
+st.write("Python version")
+st.write(sys.version)
+st.write("Streamlit version")
+st.write(st.__version__)                
 st.subheader("Run Monte Carlo Simulations on a Selected Stock Price")
 monte_carlo_symbol = st.text_input("Enter the ticker symbol 👇🏾", placeholder="Ticker symbol", key="monteCarloInput")
 if len(monte_carlo_symbol) < 1:
