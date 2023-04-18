@@ -32,6 +32,7 @@ if len(research_ticker) < 1:
     st.write("Please enter a ticker symbol to start")
 else:
     st.subheader(f"Retrieving {research_ticker} stock information")
+    st.write("Please be aware that the HuggingFace Financial Summarization Model takes a while to load and it often fails to load before the server tines out. Please be patient and attempt your search again if you get an error.")
     try:
         research_tickers.append(research_ticker)
         def query(payload):
