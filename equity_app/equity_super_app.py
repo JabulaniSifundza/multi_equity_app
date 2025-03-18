@@ -21,10 +21,7 @@ from langchain.agents import AgentType, initialize_agent
 from langchain_community.tools.yahoo_finance_news import YahooFinanceNewsTool
 from langchain_core.prompts import PromptTemplate
 
-TOKEN = " "
-API_URL = "https://api-inference.huggingface.co/models/human-centered-summarization/financial-summarization-pegasus"
-SENTI_MODEL_URL = "https://api-inference.huggingface.co/models/ahmedrachid/FinancialBERT-Sentiment-Analysis"
-headers = {"Authorization": f"Bearer {TOKEN}"}
+
 
 model = BertForSequenceClassification.from_pretrained("ahmedrachid/FinancialBERT-Sentiment-Analysis",num_labels=3)
 tokenizer = BertTokenizer.from_pretrained("ahmedrachid/FinancialBERT-Sentiment-Analysis")
