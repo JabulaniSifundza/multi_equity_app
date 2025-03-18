@@ -22,7 +22,6 @@ from langchain_community.tools.yahoo_finance_news import YahooFinanceNewsTool
 from langchain_core.prompts import PromptTemplate
 
 
-
 model = BertForSequenceClassification.from_pretrained("ahmedrachid/FinancialBERT-Sentiment-Analysis",num_labels=3)
 tokenizer = BertTokenizer.from_pretrained("ahmedrachid/FinancialBERT-Sentiment-Analysis")
 sentiment = pipeline('sentiment-analysis', model=model, tokenizer=tokenizer)
