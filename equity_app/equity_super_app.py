@@ -217,7 +217,7 @@ with financials_and_trend_analysis:
         beta_final = covariance_with_market / market_variance
         # Calating the company's CAPM/Expected Return
         ten_year_yield = get_treasury_yield('GS10')
-        # print(type(ten_year_yield[-1]))
+        print(type(ten_year_yield))
         # print((np.log(market_DF['adjclose']/market_DF['adjclose'].shift(1)).mean() * 252)*100)
         capm_expected_return = ten_year_yield.iloc[-1] + beta_final * (((np.log(market_DF['adjclose']/market_DF['adjclose'].shift(1)).mean() * 252)*100) - ten_year_yield.iloc[-1])
         #print(f"CAPM Expected Return: {capm_expected_return:.2f}%")
