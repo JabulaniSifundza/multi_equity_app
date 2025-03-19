@@ -24,7 +24,7 @@ from langgraph.prebuilt import create_react_agent
 api_key = st.secrets["GEMINI_API_KEY"]
 
 monte_carlo_simulation, portfolio_optimization, news_and_sentiment_analysis, financials_and_trend_analysis = st.tabs(["Monte Carlo Simulation", "Portfolio Optimization", "News and Sentiment Analysis", "Financials and Trend Analysis"])
-model = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key="AIzaSyDUm69Soti9_k63xrvo8q8yiiTrfenGspw")
+model = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key)
 with monte_carlo_simulation:
     st.write("Streamlit version")
     st.write(st.__version__)                
