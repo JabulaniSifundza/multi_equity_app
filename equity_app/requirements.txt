@@ -1,5 +1,6 @@
 bs4
 cmake
+fredapi
 gitdb
 GitPython
 google

@@ -20,8 +20,28 @@ import matplotlib.pyplot as plt
 import requests
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
+import fredapi
 
 api_key = st.secrets["GEMINI_API_KEY"]
+fred_api_key = st.secrets["FRED_API_KEY"]
+
+fred = fredapi.Fred(api_key=fred_api_key)
+
+def get_treasury_yield(series_id):
+    """
+    Fetches Treasury yield data from FRED.
+
+    Args:
+        series_id (str): The FRED series ID for the desired Treasury yield.
+
+    Returns:
+        pandas.Series: The Treasury yield time series, or None if an error occurs.
+    """
+    try:
+        return fred.get_series(series_id)
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
 monte_carlo_simulation, portfolio_optimization, news_and_sentiment_analysis, financials_and_trend_analysis = st.tabs(["Monte Carlo Simulation", "Portfolio Optimization", "News and Sentiment Analysis", "Financials and Trend Analysis"])
 model = ChatGoogleGenerativeAI(model="gemini-2.0-flash", google_api_key=api_key)
@@ -176,5 +196,103 @@ with news_and_sentiment_analysis:
 
 with financials_and_trend_analysis:
     st.subheader("Financials and Trend Analysis")
-    st.write("This feature is currently under construction")
-    
+    research_ticker = st.text_input("Enter the ticker symbol 👇🏾", placeholder="Ticker symbol", key="capmInput")
+    if len(research_ticker) < 1:
+        st.write("Please enter a ticker symbol to start")
+    else:
+        st.write("This feature is currently under construction")
+        company_ticker = Ticker('AAPL')
+        market_ticker = Ticker('^GSPC')
+        stock_priceDF = company_ticker.history(period='1d', start='2018-01-31', end='2023-02-01')
+        market_DF = market_ticker.history(period='1d', start='2018-01-31', end='2023-02-01')
+        stock_priceDF['log_returns'] = np.log(stock_priceDF['adjclose']/stock_priceDF['adjclose'].shift(1))
+        market_DF['log_returns'] = np.log(market_DF['adjclose']/market_DF['adjclose'].shift(1))
+        stock_priceDF = stock_priceDF.dropna()
+        market_DF = market_DF.dropna()
+        combined = pd.concat([stock_priceDF, market_DF], axis=0, join='inner')
+        covariance = (np.cov(stock_priceDF['log_returns'], market_DF['log_returns'])) * 250
+        covariance_with_market = covariance[0, 1]
+        market_variance = market_DF['log_returns'].var() * 250
+        beta_final = covariance_with_market / market_variance
+        # Calating the company's CAPM/Expected Return
+        ten_year_yield = get_treasury_yield('GS10')
+        print(ten_year_yield)
+        # capm_expected_return = float(ten_year_yield) + beta_final * (float(market_DF['log_returns'].mean()) - float(ten_year_yield))
+        # print(f"CAPM Expected Return: {capm_expected_return}")
+        company_capm = 0.025 + beta_final * 0.05
+        income_state = company_ticker.income_statement()
+        # Getting the company's Balance sheet
+        balance_sheet = company_ticker.balance_sheet()
+        cash_flow_statement = company_ticker.cash_flow(trailing=False)
+        # Functions to clean up cost, profit, liquidity metrcis and separate these values into their own objects
+        def get_costs_(cost_array):
+            return [float(cost) for cost in cost_array]
+
+        def get_year(income_state_years):
+            years = []
+            for year in income_state_years:
+                str_time = year.strftime('%Y-%m-%d')
+                years.append(str_time)
+            return years
+
+        def get_net(ebit_array):
+            return [float(earning) for earning in ebit_array]
+            
+        def get_ebit(earnings_arr):
+            return [float(earned) for earned in earnings_arr]
+
+
+        def get_revenue(revenue_arr):
+            return [float(rev) for rev in revenue_arr]
+
+
+        years = get_year(income_state['asOfDate'])
+        total_expense = get_costs_(income_state['TotalExpenses'])
+        net = get_net(income_state['NetIncome'])
+        ebit = get_ebit(income_state['EBIT'])
+        total_revenues = get_revenue(income_state['TotalRevenue'])
+        for profit in net:
+            print(f"$ {profit:,.2f}")
+        total_expense_dict = {year: cost for (year, cost) in zip(years, total_expense)}
+        net_income_dict = {year: income for (year, income) in zip(years, net)}
+        def get_total_liabilities(liabilities):
+            return [float(liability) for liability in liabilities]
+            
+
+        def get_total_assets(assets):
+            return [float(asset) for asset in assets]
+            
+
+        def get_total_cash(cash):
+            return [float(liquidity) for liquidity in cash]
+
+
+        def get_current_assets(current_assets):
+            return [float(current_asset) for current_asset in current_assets]
+
+        def get_current_liabilities(current_liabilities):
+            return [float(current_liability) for current_liability in current_liabilities]
+
+
+        def ending_cash_balance(ending_cash):
+            return [float(ending_balance) for ending_balance in ending_cash]
+
+        def get_operating_cash_flow(cash_flow_arr):
+            return [float(cash_flow) for cash_flow in cash_flow_arr]
+
+        ending_cash_balance = ending_cash_balance(cash_flow_statement['EndCashPosition'])
+        total_liabilities = get_total_liabilities(balance_sheet['TotalLiabilitiesNetMinorityInterest'])
+        total_assets = get_total_assets(balance_sheet['TotalAssets'])
+        total_cash_equivalents = get_total_cash(balance_sheet['CashAndCashEquivalents'])
+        total_current_assets = get_current_assets(balance_sheet['CurrentAssets'])
+        total_get_current_liabilities = get_current_liabilities(balance_sheet['CurrentLiabilities'])
+        operating_cash_flows = get_operating_cash_flow(cash_flow_statement['OperatingCashFlow'])
+        # Calculating Ratios
+        # Current ratio - company's ability to pay off its current liabilities 
+        current_ratios = {year: current_asset/current_liability for(year, current_asset, current_liability) in zip(years, total_current_assets, total_get_current_liabilities)}
+        # ROCE - Return on Capital Employed
+        roce = {year: year_ebit/(assets - curr_liabilities) for(year, year_ebit, assets, curr_liabilities) in zip(years, ebit, total_assets, total_get_current_liabilities)}
+        # Net Profit Margin
+        net_profit_margin = {year: (net_income/revenue)*100 for(year, net_income, revenue) in zip(years, net, total_revenues)}
+        # Operating Cash Flow ratio
+        operating_cash_flow_ratio = {year: operating_cash/current_liability for(year, operating_cash, current_liability) in zip(years, operating_cash_flows, total_get_current_liabilities)}
