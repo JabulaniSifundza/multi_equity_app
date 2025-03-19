@@ -21,6 +21,8 @@ import requests
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
 import fredapi
+from langchain_community.agent_toolkits import JsonToolkit, create_json_agent
+from langchain_community.tools.json.tool import JsonSpec
 
 api_key = st.secrets["GEMINI_API_KEY"]
 fred_api_key = st.secrets["FRED_API_KEY"]
@@ -200,8 +202,7 @@ with financials_and_trend_analysis:
     if len(research_ticker) < 1:
         st.write("Please enter a ticker symbol to start")
     else:
-        st.write("This feature is currently under construction")
-        company_ticker = Ticker('AAPL')
+        company_ticker = Ticker(research_ticker)
         market_ticker = Ticker('^GSPC')
         stock_priceDF = company_ticker.history(period='1d', start='2018-01-31', end='2023-02-01')
         market_DF = market_ticker.history(period='1d', start='2018-01-31', end='2023-02-01')
@@ -216,10 +217,12 @@ with financials_and_trend_analysis:
         beta_final = covariance_with_market / market_variance
         # Calating the company's CAPM/Expected Return
         ten_year_yield = get_treasury_yield('GS10')
-        print(ten_year_yield)
-        # capm_expected_return = float(ten_year_yield) + beta_final * (float(market_DF['log_returns'].mean()) - float(ten_year_yield))
-        # print(f"CAPM Expected Return: {capm_expected_return}")
-        company_capm = 0.025 + beta_final * 0.05
+        # print(type(ten_year_yield[-1]))
+        # print((np.log(market_DF['adjclose']/market_DF['adjclose'].shift(1)).mean() * 252)*100)
+        capm_expected_return = ten_year_yield.iloc[-1] + beta_final * (((np.log(market_DF['adjclose']/market_DF['adjclose'].shift(1)).mean() * 252)*100) - ten_year_yield.iloc[-1])
+        #print(f"CAPM Expected Return: {capm_expected_return:.2f}%")
+        #company_capm = 0.025 + beta_final * 0.05
+        st.write(f"The CAPM Expected Return for {research_ticker} is {capm_expected_return:.2f}%")
         income_state = company_ticker.income_statement()
         # Getting the company's Balance sheet
         balance_sheet = company_ticker.balance_sheet()
@@ -244,17 +247,21 @@ with financials_and_trend_analysis:
 
         def get_revenue(revenue_arr):
             return [float(rev) for rev in revenue_arr]
-
-
         years = get_year(income_state['asOfDate'])
         total_expense = get_costs_(income_state['TotalExpenses'])
         net = get_net(income_state['NetIncome'])
         ebit = get_ebit(income_state['EBIT'])
         total_revenues = get_revenue(income_state['TotalRevenue'])
-        for profit in net:
-            print(f"$ {profit:,.2f}")
-        total_expense_dict = {year: cost for (year, cost) in zip(years, total_expense)}
-        net_income_dict = {year: income for (year, income) in zip(years, net)}
+        total_expense_dict = {year: cost for (year, cost) in zip(years, total_expense) if cost > 0}
+        net_income_dict = {year: income for (year, income) in zip(years, net) if income > 0}
+        for year,income in net_income_dict.items():
+            if income > 0:
+                st.write(f"Net Income for {year} was ${income:,.2f}")
+                
+        for year,cost in total_expense_dict.items():
+            if cost > 0:
+                st.write(f"Total Expenses for {year} was ${cost:,.2f}")
+                
         def get_total_liabilities(liabilities):
             return [float(liability) for liability in liabilities]
             
@@ -290,9 +297,27 @@ with financials_and_trend_analysis:
         # Calculating Ratios
         # Current ratio - company's ability to pay off its current liabilities 
         current_ratios = {year: current_asset/current_liability for(year, current_asset, current_liability) in zip(years, total_current_assets, total_get_current_liabilities)}
+        for year, ratio in current_ratios.items():
+            if not math.isnan(ratio):
+                st.write(f"Current Ratio for {year} was {ratio:.2f}")
         # ROCE - Return on Capital Employed
         roce = {year: year_ebit/(assets - curr_liabilities) for(year, year_ebit, assets, curr_liabilities) in zip(years, ebit, total_assets, total_get_current_liabilities)}
         # Net Profit Margin
         net_profit_margin = {year: (net_income/revenue)*100 for(year, net_income, revenue) in zip(years, net, total_revenues)}
         # Operating Cash Flow ratio
         operating_cash_flow_ratio = {year: operating_cash/current_liability for(year, operating_cash, current_liability) in zip(years, operating_cash_flows, total_get_current_liabilities)}
+        try:
+            json_spec = JsonSpec(dict_=net_income_dict, max_value_length=4000)
+            json_toolkit = JsonToolkit(spec=json_spec)
+            json_agent_executor = create_json_agent(
+                llm=model, toolkit=json_toolkit, verbose=True
+            )
+            results = json_agent_executor.run(
+                "What are your thoughts on the profit trend? Use the values of the keys in the dictionary to answer the question. The keys are dates and the values are the net profits. Ignore the nan values and give an opionion of the trend of the data you have available. You are a highly analytical financial analyst looking for companies to invest in. Investments can be long or short positions."
+            )
+            # print(results)
+            st.write(results)
+        except Exception as Err:
+            st.write("The HuggingFace Financial Summarization Model failed to load")
+            print(Err)
+
