@@ -21,6 +21,8 @@ import requests
 from langchain_core.messages import SystemMessage
 from langgraph.prebuilt import create_react_agent
 import fredapi
+from langchain_community.agent_toolkits import JsonToolkit, create_json_agent
+from langchain_community.tools.json.tool import JsonSpec
 
 api_key = st.secrets["GEMINI_API_KEY"]
 fred_api_key = st.secrets["FRED_API_KEY"]
@@ -250,8 +252,8 @@ with financials_and_trend_analysis:
         net = get_net(income_state['NetIncome'])
         ebit = get_ebit(income_state['EBIT'])
         total_revenues = get_revenue(income_state['TotalRevenue'])
-        total_expense_dict = {year: cost for (year, cost) in zip(years, total_expense)}
-        net_income_dict = {year: income for (year, income) in zip(years, net)}
+        total_expense_dict = {year: cost for (year, cost) in zip(years, total_expense) if cost > 0}
+        net_income_dict = {year: income for (year, income) in zip(years, net) if income > 0}
         for year,income in net_income_dict.items():
             if income > 0:
                 st.write(f"Net Income for {year} was ${income:,.2f}")
@@ -304,3 +306,18 @@ with financials_and_trend_analysis:
         net_profit_margin = {year: (net_income/revenue)*100 for(year, net_income, revenue) in zip(years, net, total_revenues)}
         # Operating Cash Flow ratio
         operating_cash_flow_ratio = {year: operating_cash/current_liability for(year, operating_cash, current_liability) in zip(years, operating_cash_flows, total_get_current_liabilities)}
+        try:
+            json_spec = JsonSpec(dict_=net_income_dict, max_value_length=4000)
+            json_toolkit = JsonToolkit(spec=json_spec)
+            json_agent_executor = create_json_agent(
+                llm=model, toolkit=json_toolkit, verbose=True
+            )
+            results = json_agent_executor.run(
+                "What are your thoughts on the profit trend? Use the values of the keys in the dictionary to answer the question. The keys are dates and the values are the net profits. Ignore the nan values and give an opionion of the trend of the data you have available. You are a highly analytical financial analyst looking for companies to invest in. Investments can be long or short positions."
+            )
+            # print(results)
+            st.write(results)
+        except Exception as Err:
+            st.write("The HuggingFace Financial Summarization Model failed to load")
+            print(Err)
+
